@@ -1,9 +1,19 @@
 import csv
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from extract_questions import CSV_FIELDS, extract_file, write_csv_atomic
+from extract_questions import (
+    CSV_FIELDS,
+    ExtractedRecord,
+    deduplicate,
+    extract_file,
+    main,
+    validate_duplicate_consistency,
+    write_csv_atomic,
+)
 
 
 SAMPLE = """[Page 1]
@@ -99,6 +109,85 @@ class ExtractionTests(unittest.TestCase):
         self.assertEqual(CSV_FIELDS, reader.fieldnames)
         self.assertEqual("1", rows[0]["domaina_index"])
         self.assertEqual(2, len(rows))
+
+    def test_deduplicate_prefers_clean_ocr_copy(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_sample(Path(temporary))
+            records, diagnostics = extract_file(path, chunk_size=128, overlap=32)
+
+        clean = records[0]
+        contaminated_row = dict(clean.row)
+        contaminated_row["justification"] += (
+            "\nA. Text from the following question."
+            "\nB. More unrelated text."
+            "\nC. More unrelated text."
+            "\nD. More unrelated text."
+        )
+        contaminated = ExtractedRecord(clean.source, clean.question_number, contaminated_row)
+
+        self.assertEqual([], diagnostics)
+        self.assertEqual([clean], deduplicate([contaminated, clean]))
+
+    def test_deduplicate_handles_ocr_wording_variants_by_source_number(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_sample(Path(temporary))
+            records, diagnostics = extract_file(path, chunk_size=128, overlap=32)
+
+        original = records[0]
+        variant_row = dict(original.row)
+        variant_row["question"] = "Which control is the BEST choice?"
+        variant = ExtractedRecord(original.source, original.question_number, variant_row)
+
+        self.assertEqual([], diagnostics)
+        self.assertNotEqual(original.identity, variant.identity)
+        self.assertEqual(1, len(deduplicate([original, variant])))
+
+    def test_duplicate_conflicting_answer_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_sample(Path(temporary))
+            records, diagnostics = extract_file(path, chunk_size=128, overlap=32)
+
+        original = records[0]
+        conflicting_row = dict(original.row)
+        conflicting_row["key answer"] = "D"
+        conflicting = ExtractedRecord(original.source, original.question_number, conflicting_row)
+        conflicts = validate_duplicate_consistency([original, conflicting])
+
+        self.assertEqual([], diagnostics)
+        self.assertEqual(1, len(conflicts))
+        self.assertIn("key answer", conflicts[0])
+
+    def test_main_deduplicates_repeated_input(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            input_directory = directory / "raw"
+            input_directory.mkdir()
+            self.write_sample(input_directory, SAMPLE + "\n" + SAMPLE)
+            output = directory / "question.csv"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                result = main(
+                    [
+                        "--input-dir",
+                        str(input_directory),
+                        "--output",
+                        str(output),
+                        "--chunk-size",
+                        "128",
+                        "--overlap",
+                        "32",
+                    ]
+                )
+
+            with output.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+
+        self.assertEqual(0, result)
+        self.assertEqual(2, len(rows))
+        self.assertIn("Wrote 2 questions", stdout.getvalue())
+        self.assertIn("Removed 2 repeated question occurrence(s)", stderr.getvalue())
 
 
 if __name__ == "__main__":

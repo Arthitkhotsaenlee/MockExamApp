@@ -239,14 +239,89 @@ def validate_records(records: Iterable[ExtractedRecord]) -> list[str]:
     return diagnostics
 
 
-def deduplicate(records: Iterable[ExtractedRecord]) -> list[ExtractedRecord]:
+def duplicate_keys(record: ExtractedRecord) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return stable source/number and normalized-content keys for a record."""
+    source = os.path.normcase(os.path.abspath(record.source))
+    return (
+        ("source-question", source, record.row.get("domaina_index", ""), record.question_number),
+        ("content", record.identity),
+    )
+
+
+def validate_duplicate_consistency(records: Iterable[ExtractedRecord]) -> list[str]:
+    """Report duplicate questions whose answer key or domain disagrees."""
+    diagnostics: list[str] = []
+    seen: dict[tuple[str, ...], tuple[int, ExtractedRecord]] = {}
+    reported_pairs: set[tuple[int, int]] = set()
+    consistency_fields = ("key answer", "domaina_index")
+
+    for index, record in enumerate(records):
+        for key in duplicate_keys(record):
+            previous_entry = seen.get(key)
+            if previous_entry is None:
+                seen[key] = (index, record)
+                continue
+
+            previous_index, previous = previous_entry
+            pair = (previous_index, index)
+            conflicts = [
+                field
+                for field in consistency_fields
+                if record.row.get(field) != previous.row.get(field)
+            ]
+            if conflicts and pair not in reported_pairs:
+                diagnostics.append(
+                    f"conflicting duplicate question: {record.source} question "
+                    f"{record.question_number} differs from {previous.source} question "
+                    f"{previous.question_number} in {', '.join(conflicts)}"
+                )
+                reported_pairs.add(pair)
+
+    return diagnostics
+
+
+def record_quality(record: ExtractedRecord) -> tuple[bool, int, int, int]:
+    """Return a deterministic quality score used to select among OCR duplicates."""
+    justification_labels = [
+        line[0]
+        for line in record.row["justification"].splitlines()
+        if len(line) >= 3 and line[0] in "ABCD" and line[1:3] == ". "
+    ]
+    combined_text = "\n".join(record.row.values())
+    lowered = combined_text.casefold()
+    noise_count = sum(
+        lowered.count(marker)
+        for marker in ("extracted text:", "page footer:", "page intentionally left blank")
+    )
+    replacement_count = combined_text.count("\ufffd")
+    return (
+        justification_labels == ["A", "B", "C", "D"],
+        -noise_count,
+        -replacement_count,
+        -abs(len(justification_labels) - 4),
+    )
+
+
+def select_best_by_key(
+    records: Iterable[ExtractedRecord], key_index: int
+) -> list[ExtractedRecord]:
     unique: list[ExtractedRecord] = []
-    seen: set[str] = set()
+    positions: dict[tuple[str, ...], int] = {}
     for record in records:
-        if record.identity not in seen:
-            seen.add(record.identity)
+        key = duplicate_keys(record)[key_index]
+        position = positions.get(key)
+        if position is None:
+            positions[key] = len(unique)
             unique.append(record)
+        elif record_quality(record) > record_quality(unique[position]):
+            unique[position] = record
     return unique
+
+
+def deduplicate(records: Iterable[ExtractedRecord]) -> list[ExtractedRecord]:
+    """Keep one record per question, preferring the cleanest OCR copy."""
+    source_unique = select_best_by_key(records, key_index=0)
+    return select_best_by_key(source_unique, key_index=1)
 
 
 def write_csv_atomic(path: Path, records: Iterable[ExtractedRecord]) -> None:
@@ -289,14 +364,21 @@ def main(argv: list[str] | None = None) -> int:
         all_records.extend(records)
         warnings.extend(file_warnings)
 
-    errors = validate_records(all_records)
+    unique_records = deduplicate(all_records)
+    duplicate_count = len(all_records) - len(unique_records)
+    errors = validate_records(unique_records)
+    errors.extend(validate_duplicate_consistency(all_records))
     if errors:
         print("Extraction validation failed:", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    unique_records = deduplicate(all_records)
+    if duplicate_count:
+        warnings.append(
+            f"Removed {duplicate_count} repeated question occurrence(s); "
+            f"kept {len(unique_records)} unique questions"
+        )
     write_csv_atomic(args.output, unique_records)
     print(f"Wrote {len(unique_records)} questions from {len(paths)} files to {args.output}")
     if warnings:
