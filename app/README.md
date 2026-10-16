@@ -1,27 +1,38 @@
-# CISA Exam Practice Application
+# CISA Study — Vanilla HTML, CSS, and JavaScript
 
-A client-side React application with mock-exam and learning modes. Question data is not bundled; users load a compatible JSON file from their device. Data and active sessions remain in browser local storage.
+This is a dependency-free version of the exam practice application. It provides the same core mock-exam and learning workflows without React, TypeScript, Vite, npm, or a build step.
 
-## Requirements
+Question data is not bundled. Each user selects a compatible JSON question bank from their own device, and all data remains in browser local storage.
 
-- Node.js 20.19+ or 22.12+
-- npm
-- A compatible JSON question bank
+## Run the application
 
-## Install and run
+### Simplest option
 
-From the `app` directory:
+Open `index.html` in a modern browser. Most current browsers support the required local file and storage APIs.
+
+### Recommended local server
+
+From the `app2` directory, use any static HTTP server. For example, with Python:
 
 ```bash
-npm install
-npm run dev
+python3 -m http.server 8080
 ```
 
-Open the local URL printed by Vite, normally `http://localhost:5173`. Select **Load Data**, choose a compatible JSON file, and start Mock Exam or Learning mode. Stop the server with **Ctrl+C**.
+Then open `http://localhost:8080`.
+
+No npm installation or build command is required.
+
+## Files
+
+- `index.html` — static page structure and application shell.
+- `styles.css` — responsive desktop and mobile presentation.
+- `app.js` — validation, state, randomization, exam, scoring, learning, storage, and rendering logic.
+
+All three files must remain together when the application is copied or deployed.
 
 ## Question-bank format
 
-The JSON root must be an array. Every question requires these string fields:
+The JSON root must be an array. Every question requires the following string fields:
 
 ```json
 [
@@ -41,56 +52,35 @@ The JSON root must be an array. Every question requires these string fields:
 
 `key answer` must be `A`, `B`, `C`, or `D`. `domaina_index` must be a string from `1` through `5`.
 
-## Validate changes
+## Features
 
-Run before deployment:
+- Local JSON upload and row validation
+- Stable question IDs and duplicate removal
+- Domain counts and selection
+- Configurable mock-exam size and duration
+- Weighted, randomized question selection
+- Shuffled answer choices
+- Persistent timer with automatic submission
+- Question navigation, answered indicators, and flags
+- Score summary with correct, incorrect, and unanswered counts
+- Randomized no-repeat learning sessions
+- Immediate answer feedback and explanations
+- Browser persistence across refreshes
+- Confirmed application reset
+- Responsive desktop, tablet, and mobile interface
 
-```bash
-npm run lint
-npm run build
-```
+## Browser storage
 
-The production build is written to `dist/`. Test it locally with:
+This version uses these local-storage keys:
 
-```bash
-npm run preview
-```
+- `cisa-app2-question-bank-v1`
+- `cisa-app2-active-exam-v1`
+- `cisa-app2-learning-v1`
 
-## Deploy
+Use **Reset app** to remove the question bank and all saved progress.
 
-Deploy the contents of `dist/` to any static web host. Rebuild after every source-code or dependency change. No backend, database server, or runtime environment variables are required.
+## Share or deploy
 
-## Maintenance
+Copy the complete `app2` folder, or upload its three application files to any static web host. A recipient only needs a modern browser and does not need npm.
 
-### Update dependencies
-
-```bash
-npm outdated
-npm update
-npm run lint
-npm run build
-```
-
-Commit `package.json` and `package-lock.json` together when dependencies change. For major-version upgrades, review release notes and test both application modes manually.
-
-### Routine manual checks
-
-1. Load a valid question bank and confirm invalid JSON shows an error.
-2. Start, answer, and submit a mock exam.
-3. Confirm scoring and answer explanations.
-4. Start learning mode and verify immediate feedback.
-5. Refresh and verify active state restoration.
-6. Check desktop and mobile layouts.
-
-### Browser storage
-
-The application stores its question bank and session state under keys beginning with `cisa-app-`. To reset the application, clear the site's local storage in browser developer tools and reload.
-
-Uploaded files never leave the browser. Answers are stored client-side, so this application is suitable for study but not for secure or proctored exams.
-
-## Troubleshooting
-
-- **JSON does not load:** Verify the root is an array and all fields use the exact names and allowed values above.
-- **Old session causes unexpected behavior:** Clear local storage and reload.
-- **Port 5173 is unavailable:** Use Vite's alternate URL or run `npm run dev -- --port 5174`.
-- **Production build fails:** Run `npm install`, then resolve errors from `npm run lint` and `npm run build`.
+Because answer keys are available in browser storage, this application is intended for study rather than secure or proctored examinations.
