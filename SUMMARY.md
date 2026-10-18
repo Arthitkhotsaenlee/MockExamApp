@@ -67,6 +67,8 @@ Reset removes the question bank and saved sessions and returns the configuration
 
 The top bar includes −/+ controls with text-size levels from 90% through 130%. The selected size is stored in browser local storage and restored when the application is reopened.
 
+Question banks use a compact, backward-compatible storage representation to reduce local-storage usage. A quota failure no longer blocks the application: study can continue using in-memory state, with a visible warning that persistence may be unavailable. On a quota error, the app removes only known obsolete keys from its previous versions and retries once.
+
 ## Run and deploy
 
 The application can be opened directly through `app/index.html` or served as static files:

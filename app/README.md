@@ -83,6 +83,8 @@ This version uses these local-storage keys:
 
 Use **Reset app** to remove the question bank and saved progress and restore the default text size.
 
+The question bank is stored in a compact internal format to reduce browser quota usage. If persistent storage is unavailable or full, the application continues in the current tab and displays a warning that data may not survive a refresh. When quota recovery is needed, only storage keys from older versions of this application are removed automatically.
+
 ## Share or deploy
 
 Copy the complete `app` folder, or upload its three application files to any static web host. A recipient only needs a modern browser and does not need npm.

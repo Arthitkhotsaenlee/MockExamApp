@@ -10,10 +10,23 @@ const STORAGE_KEYS = {
 const DOMAIN_WEIGHTS = { '1': 0.18, '2': 0.18, '3': 0.12, '4': 0.26, '5': 0.26 }
 const DOMAIN_IDS = ['1', '2', '3', '4', '5']
 const FONT_SCALES = [0.9, 1, 1.1, 1.2, 1.3]
+const LEGACY_STORAGE_KEYS = [
+  'cisa-app-question-bank-v1',
+  'cisa-app-active-exam-v1',
+  'cisa-app-learning-v1',
+  'cisa-app2-question-bank-v1',
+  'cisa-app2-active-exam-v1',
+  'cisa-app2-learning-v1',
+  'Mock-exam-app-question-bank-v1',
+  'Mock-exam-app-active-exam-v1',
+  'Mock-exam-app-learning-v1',
+]
+let questionBankNeedsCompaction = false
 
 const state = {
   tab: 'load',
   error: null,
+  storageWarning: null,
   questions: restoreQuestions(),
   selectedDomains: [...DOMAIN_IDS],
   questionCount: 150,
@@ -26,6 +39,10 @@ const state = {
 if (!state.questions.length) {
   state.exam = null
   state.learning = null
+}
+
+if (questionBankNeedsCompaction && state.questions.length) {
+  writeStorage(STORAGE_KEYS.questionBank, serializeQuestionBank(state.questions))
 }
 
 const main = document.querySelector('#main-content')
@@ -46,23 +63,101 @@ function readStorage(key) {
 }
 
 function writeStorage(key, value) {
+  const serialized = value === null ? null : JSON.stringify(value)
+  const persist = () => {
+    if (serialized === null) localStorage.removeItem(key)
+    else localStorage.setItem(key, serialized)
+  }
+
   try {
-    if (value === null) localStorage.removeItem(key)
-    else localStorage.setItem(key, JSON.stringify(value))
+    persist()
+    return true
   } catch (error) {
-    state.error = `Browser storage is unavailable: ${error.message}`
+    if (isQuotaError(error) && clearLegacyStorage()) {
+      try {
+        persist()
+        return true
+      } catch {
+        // Continue with in-memory state and show the non-blocking warning below.
+      }
+    }
+    state.storageWarning = 'Persistent browser storage is unavailable or full. You can continue in this tab, but the question bank and progress may be lost after a refresh. Clear this site\'s stored data or allow browser storage to restore persistence.'
+    return false
   }
 }
 
+function isQuotaError(error) {
+  return error?.name === 'QuotaExceededError' || error?.name === 'NS_ERROR_DOM_QUOTA_REACHED' || error?.code === 22 || error?.code === 1014
+}
+
+function clearLegacyStorage() {
+  let removed = false
+  try {
+    for (const key of LEGACY_STORAGE_KEYS) {
+      if (localStorage.getItem(key) !== null) {
+        localStorage.removeItem(key)
+        removed = true
+      }
+    }
+  } catch {
+    return false
+  }
+  return removed
+}
+
 function restoreQuestions() {
-  const questions = readStorage(STORAGE_KEYS.questionBank)
-  if (!Array.isArray(questions)) return []
-  const valid = questions.every((question) =>
-    question && typeof question.id === 'string' && typeof question.question === 'string' &&
-    Array.isArray(question.choices) && question.choices.length === 4 &&
-    ['A', 'B', 'C', 'D'].includes(question.keyAnswer) && DOMAIN_IDS.includes(question.domainaIndex),
-  )
-  return valid ? questions : []
+  const stored = readStorage(STORAGE_KEYS.questionBank)
+  if (!Array.isArray(stored)) return []
+  const questions = stored.map(restoreQuestion)
+  if (questions.some((question) => question === null)) return []
+  questionBankNeedsCompaction = stored.some((question) => !Array.isArray(question))
+  return questions
+}
+
+function restoreQuestion(stored) {
+  let values
+  let preservedId = null
+  if (Array.isArray(stored) && stored.length === 10) {
+    preservedId = typeof stored[0] === 'string' ? stored[0] : null
+    values = stored.slice(1)
+  } else if (Array.isArray(stored) && stored.length === 9) {
+    values = stored
+  } else if (stored && typeof stored === 'object' && Array.isArray(stored.choices)) {
+    preservedId = typeof stored.id === 'string' ? stored.id : null
+    const choices = Object.fromEntries(stored.choices.map((choice) => [choice?.letter, choice?.text]))
+    values = [stored.question, choices.A, choices.B, choices.C, choices.D, stored.keyAnswer, stored.justification, stored.domain, stored.domainaIndex]
+  } else {
+    return null
+  }
+
+  if (!values.every((value) => typeof value === 'string') ||
+      values.slice(0, 8).some((value) => !value.trim()) ||
+      !['A', 'B', 'C', 'D'].includes(values[5]) || !DOMAIN_IDS.includes(values[8])) return null
+
+  const [question, ...rest] = values
+  const choiceTexts = rest.slice(0, 4)
+  const id = preservedId || hashString(`${question}|${choiceTexts.join('|')}`)
+  return {
+    id,
+    question,
+    choices: ['A', 'B', 'C', 'D'].map((letter, index) => ({ id: `${id}_${letter}`, letter, text: choiceTexts[index] })),
+    keyAnswer: values[5],
+    justification: values[6],
+    domain: values[7],
+    domainaIndex: values[8],
+  }
+}
+
+function serializeQuestionBank(questions) {
+  return questions.map((question) => [
+    question.id,
+    question.question,
+    ...['A', 'B', 'C', 'D'].map((letter) => question.choices.find((choice) => choice.letter === letter)?.text || ''),
+    question.keyAnswer,
+    question.justification,
+    question.domain,
+    question.domainaIndex,
+  ])
 }
 
 function restoreFontScale() {
@@ -74,11 +169,11 @@ function applyFontScale() {
   document.documentElement.style.setProperty('--font-scale', String(state.fontScale))
 }
 
-function saveState() {
-  writeStorage(STORAGE_KEYS.questionBank, state.questions.length ? state.questions : null)
+function saveState({ questionBank = false } = {}) {
   writeStorage(STORAGE_KEYS.activeExam, state.exam)
   writeStorage(STORAGE_KEYS.learning, state.learning)
   writeStorage(STORAGE_KEYS.fontScale, state.fontScale)
+  if (questionBank) writeStorage(STORAGE_KEYS.questionBank, state.questions.length ? serializeQuestionBank(state.questions) : null)
 }
 
 function escapeHtml(value) {
@@ -326,8 +421,11 @@ function render() {
   const alert = state.error
     ? `<div class="alert" role="alert"><strong>Unable to continue</strong><span>${escapeHtml(state.error)}</span><button data-action="dismiss-error" aria-label="Dismiss error">×</button></div>`
     : ''
+  const storageWarning = state.storageWarning
+    ? `<div class="alert storage-warning" role="status"><strong>Storage is limited</strong><span>${escapeHtml(state.storageWarning)}</span><button data-action="dismiss-storage-warning" aria-label="Dismiss storage warning">×</button></div>`
+    : ''
   const content = state.tab === 'mock' ? renderMock() : state.tab === 'learn' ? renderLearning() : renderDashboard()
-  main.innerHTML = alert + content
+  main.innerHTML = alert + storageWarning + content
 }
 
 function renderHeader() {
@@ -525,8 +623,9 @@ async function loadQuestionFile(file) {
     state.exam = null
     state.learning = null
     state.error = null
+    state.storageWarning = null
     state.tab = 'mock'
-    saveState()
+    saveState({ questionBank: true })
   } catch (error) {
     console.error('Question file import failed:', error)
     state.error = `Could not load ${file.name}: ${error.message || 'Unknown error.'}`
@@ -563,6 +662,9 @@ function handleClick(event) {
   } else if (action === 'dismiss-error') {
     state.error = null
     render()
+  } else if (action === 'dismiss-storage-warning') {
+    state.storageWarning = null
+    render()
   } else if (action === 'font-decrease' || action === 'font-increase') {
     const currentIndex = FONT_SCALES.indexOf(state.fontScale)
     const offset = action === 'font-decrease' ? -1 : 1
@@ -573,9 +675,15 @@ function handleClick(event) {
     renderHeader()
   } else if (action === 'reset') {
     if (!window.confirm('Reset the application? This will remove the question bank, saved progress, and display settings from this browser.')) return
-    Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key))
+    try {
+      Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key))
+      clearLegacyStorage()
+    } catch {
+      // In-memory reset still works when the browser blocks persistent storage.
+    }
     state.tab = 'load'
     state.error = null
+    state.storageWarning = null
     state.questions = []
     state.selectedDomains = [...DOMAIN_IDS]
     state.questionCount = 150

@@ -116,6 +116,8 @@ h2 { margin-bottom: 5px; color: var(--navy); font-size: 18px; letter-spacing: -.
 .alert { position: relative; margin-bottom: 18px; padding: 13px 45px 13px 16px; display: grid; gap: 3px; color: #9b263a; background: var(--red-soft); border: 1px solid #ffd3da; border-radius: 11px; font-size: 12px; }
 .alert strong { font-size: 12px; }
 .alert button { position: absolute; top: 8px; right: 10px; border: 0; color: #a64b5b; background: none; font-size: 20px; }
+.alert.storage-warning { color: #805610; background: #fff8e8; border-color: #f2d99d; }
+.alert.storage-warning button { color: #9a6a18; }
 .timer { min-width: 132px; padding: 10px 14px; color: var(--primary); background: #fff; border: 1px solid var(--line); border-radius: 11px; box-shadow: var(--shadow); text-align: center; }
 .timer small, .timer strong { display: block; }
 .timer small { color: #8992a4; font-size: 9px; font-weight: 750; letter-spacing: .8px; text-transform: uppercase; }
