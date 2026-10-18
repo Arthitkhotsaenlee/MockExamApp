@@ -91,6 +91,7 @@ Then open `http://localhost:8080`.
 - Mock exams use weighted domain allocation, a configurable timer, navigation, flags, scoring, and a per-question answer review after submission.
 - Learning mode provides immediate feedback and explanations without repeating questions in a session, with an elapsed timer that resets for each question.
 - Question banks and active sessions persist in browser local storage.
+- Top-bar −/+ controls adjust and save the application text size.
 - Reset clears the loaded question bank and saved progress.
 
 Uploaded files remain on the user's device. Because answer keys are available client-side, the application is intended for personal study rather than secure or proctored examinations.

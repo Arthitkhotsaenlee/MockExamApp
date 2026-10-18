@@ -18,7 +18,12 @@
       </button>
       <div class="topbar-actions">
         <span id="data-status" class="data-status"><span class="status-dot"></span><span>No question bank</span></span>
-        <button id="reset-button" class="reset-button" data-action="reset" disabled title="Clear the question bank and all saved progress"><span>↻</span> Reset app</button>
+        <div class="font-size-controls" role="group" aria-label="Text size">
+          <button id="font-decrease" class="font-size-button" data-action="font-decrease" aria-label="Decrease text size" title="Decrease text size">−</button>
+          <span id="font-size-value" aria-live="polite">100%</span>
+          <button id="font-increase" class="font-size-button" data-action="font-increase" aria-label="Increase text size" title="Increase text size">+</button>
+        </div>
+        <button id="reset-button" class="reset-button" data-action="reset" disabled title="Clear the question bank, saved progress, and display settings"><span class="reset-icon">↻</span><span class="reset-label">Reset app</span></button>
       </div>
     </header>
 

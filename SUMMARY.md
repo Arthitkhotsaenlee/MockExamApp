@@ -61,8 +61,11 @@ The application uses these local-storage keys:
 - `mock-exam-app-question-bank-v1`
 - `mock-exam-app-active-exam-v1`
 - `mock-exam-app-learning-v1`
+- `mock-exam-app-font-scale-v1`
 
 Reset removes the question bank and saved sessions and returns the configuration to its defaults.
+
+The top bar includes −/+ controls with text-size levels from 90% through 130%. The selected size is stored in browser local storage and restored when the application is reopened.
 
 ## Run and deploy
 

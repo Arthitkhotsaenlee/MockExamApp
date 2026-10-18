@@ -70,6 +70,7 @@ The JSON root must be an array. Every question requires the following string fie
 - Browser persistence across refreshes
 - Confirmed application reset
 - Responsive desktop, tablet, and mobile interface
+- Persistent top-bar controls for increasing or decreasing application text size
 
 ## Browser storage
 
@@ -78,8 +79,9 @@ This version uses these local-storage keys:
 - `mock-exam-app-question-bank-v1`
 - `mock-exam-app-active-exam-v1`
 - `mock-exam-app-learning-v1`
+- `mock-exam-app-font-scale-v1`
 
-Use **Reset app** to remove the question bank and all saved progress.
+Use **Reset app** to remove the question bank and saved progress and restore the default text size.
 
 ## Share or deploy
 

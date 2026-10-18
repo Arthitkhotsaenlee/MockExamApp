@@ -4,10 +4,12 @@ const STORAGE_KEYS = {
   questionBank: 'mock-exam-app-question-bank-v1',
   activeExam: 'mock-exam-app-active-exam-v1',
   learning: 'mock-exam-app-learning-v1',
+  fontScale: 'mock-exam-app-font-scale-v1',
 }
 
 const DOMAIN_WEIGHTS = { '1': 0.18, '2': 0.18, '3': 0.12, '4': 0.26, '5': 0.26 }
 const DOMAIN_IDS = ['1', '2', '3', '4', '5']
+const FONT_SCALES = [0.9, 1, 1.1, 1.2, 1.3]
 
 const state = {
   tab: 'load',
@@ -18,6 +20,7 @@ const state = {
   durationMinutes: 240,
   exam: readStorage(STORAGE_KEYS.activeExam),
   learning: readStorage(STORAGE_KEYS.learning),
+  fontScale: restoreFontScale(),
 }
 
 if (!state.questions.length) {
@@ -30,6 +33,7 @@ const main = document.querySelector('#main-content')
 document.addEventListener('click', handleClick)
 document.addEventListener('change', handleChange)
 window.setInterval(updateTimer, 1000)
+applyFontScale()
 render()
 
 function readStorage(key) {
@@ -61,10 +65,20 @@ function restoreQuestions() {
   return valid ? questions : []
 }
 
+function restoreFontScale() {
+  const saved = readStorage(STORAGE_KEYS.fontScale)
+  return FONT_SCALES.includes(saved) ? saved : 1
+}
+
+function applyFontScale() {
+  document.documentElement.style.setProperty('--font-scale', String(state.fontScale))
+}
+
 function saveState() {
   writeStorage(STORAGE_KEYS.questionBank, state.questions.length ? state.questions : null)
   writeStorage(STORAGE_KEYS.activeExam, state.exam)
   writeStorage(STORAGE_KEYS.learning, state.learning)
+  writeStorage(STORAGE_KEYS.fontScale, state.fontScale)
 }
 
 function escapeHtml(value) {
@@ -320,7 +334,11 @@ function renderHeader() {
   const status = document.querySelector('#data-status')
   status.classList.toggle('ready', Boolean(state.questions.length))
   status.lastElementChild.textContent = state.questions.length ? `${state.questions.length} questions ready` : 'No question bank'
-  document.querySelector('#reset-button').disabled = !state.questions.length && !state.exam && !state.learning
+  const scaleIndex = FONT_SCALES.indexOf(state.fontScale)
+  document.querySelector('#font-size-value').textContent = `${Math.round(state.fontScale * 100)}%`
+  document.querySelector('#font-decrease').disabled = scaleIndex === 0
+  document.querySelector('#font-increase').disabled = scaleIndex === FONT_SCALES.length - 1
+  document.querySelector('#reset-button').disabled = !state.questions.length && !state.exam && !state.learning && state.fontScale === 1
 }
 
 function renderNavigation() {
@@ -545,8 +563,16 @@ function handleClick(event) {
   } else if (action === 'dismiss-error') {
     state.error = null
     render()
+  } else if (action === 'font-decrease' || action === 'font-increase') {
+    const currentIndex = FONT_SCALES.indexOf(state.fontScale)
+    const offset = action === 'font-decrease' ? -1 : 1
+    const nextIndex = Math.max(0, Math.min(FONT_SCALES.length - 1, currentIndex + offset))
+    state.fontScale = FONT_SCALES[nextIndex]
+    writeStorage(STORAGE_KEYS.fontScale, state.fontScale)
+    applyFontScale()
+    renderHeader()
   } else if (action === 'reset') {
-    if (!window.confirm('Reset the application? This will remove the question bank and all saved progress from this browser.')) return
+    if (!window.confirm('Reset the application? This will remove the question bank, saved progress, and display settings from this browser.')) return
     Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key))
     state.tab = 'load'
     state.error = null
@@ -556,6 +582,8 @@ function handleClick(event) {
     state.durationMinutes = 240
     state.exam = null
     state.learning = null
+    state.fontScale = 1
+    applyFontScale()
     render()
   } else if (action === 'start-mock') {
     try {
