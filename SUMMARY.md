@@ -52,7 +52,7 @@ Mock exams provide configurable question counts and duration, weighted domain al
 
 ### Learning mode
 
-Learning mode randomizes eligible questions without repeating a question during the session. It provides immediate correct or incorrect feedback, shows the correct answer, preserves explanation line breaks, and tracks progress and answer counts.
+Learning mode randomizes eligible questions without repeating a question during the session. It provides immediate correct or incorrect feedback, shows the correct answer, preserves explanation line breaks, and tracks progress and answer counts. An elapsed timer starts at `0:00` for every question, stops when an answer is selected, and resets for the next question.
 
 ### Browser persistence
 

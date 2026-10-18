@@ -89,7 +89,7 @@ Then open `http://localhost:8080`.
 - Mock-exam and learning questions are randomized.
 - Answer choices always remain in their source A–D order in both modes.
 - Mock exams use weighted domain allocation, a configurable timer, navigation, flags, scoring, and a per-question answer review after submission.
-- Learning mode provides immediate feedback and explanations without repeating questions in a session.
+- Learning mode provides immediate feedback and explanations without repeating questions in a session, with an elapsed timer that resets for each question.
 - Question banks and active sessions persist in browser local storage.
 - Reset clears the loaded question bank and saved progress.
 

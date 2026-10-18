@@ -219,6 +219,7 @@ function createLearning() {
   const eligible = shuffle(state.questions.filter((question) => state.selectedDomains.includes(question.domainaIndex)), random)
   if (!eligible.length) throw new Error('No questions are available for the selected domains.')
   const first = eligible[0]
+  const questionStartedAt = Date.now()
   return {
     selectedDomains: [...state.selectedDomains],
     remainingQuestionIds: eligible.slice(1).map((question) => question.id),
@@ -226,6 +227,8 @@ function createLearning() {
     currentQuestionId: first.id,
     selectedChoiceId: null,
     isCorrect: null,
+    questionStartedAt,
+    questionAnsweredAt: null,
     correctCount: 0,
     incorrectCount: 0,
   }
@@ -236,6 +239,8 @@ function nextLearningQuestion() {
     state.learning.currentQuestionId = null
     state.learning.selectedChoiceId = null
     state.learning.isCorrect = null
+    state.learning.questionStartedAt = null
+    state.learning.questionAnsweredAt = null
     return
   }
   const [nextId, ...remaining] = state.learning.remainingQuestionIds
@@ -246,6 +251,22 @@ function nextLearningQuestion() {
   state.learning.seenQuestionIds.push(nextId)
   state.learning.selectedChoiceId = null
   state.learning.isCorrect = null
+  state.learning.questionStartedAt = Date.now()
+  state.learning.questionAnsweredAt = null
+}
+
+function ensureLearningTiming() {
+  if (!state.learning?.currentQuestionId) return false
+  let changed = false
+  if (!Number.isFinite(state.learning.questionStartedAt)) {
+    state.learning.questionStartedAt = Date.now()
+    changed = true
+  }
+  if (!('questionAnsweredAt' in state.learning)) {
+    state.learning.questionAnsweredAt = state.learning.selectedChoiceId ? Date.now() : null
+    changed = true
+  }
+  return changed
 }
 
 function calculateResult() {
@@ -416,6 +437,10 @@ function renderAnswerReview(result) {
 }
 
 function renderLearning() {
+  if (ensureLearningTiming()) saveState()
+  const timer = state.learning?.currentQuestionId
+    ? `<div class="timer"><small>${state.learning.questionAnsweredAt ? 'Time taken' : 'Time on question'}</small><strong id="learning-timer-value">${formatTime((state.learning.questionAnsweredAt || Date.now()) - state.learning.questionStartedAt)}</strong></div>`
+    : ''
   let body
   if (!state.learning) {
     body = `<section class="card setup-card"><div class="section-title"><div><h2>Choose your focus</h2><p>Select one or more domains for this session.</p></div></div>${renderDomainSelector()}<div class="setup-footer"><p>Questions will not repeat during this session.</p><button class="primary" data-action="start-learning">Start learning <span>→</span></button></div></section>`
@@ -424,7 +449,7 @@ function renderLearning() {
   } else {
     body = `<section class="card exam-card">${renderLearningQuestion()}</section>`
   }
-  return `${pageHeading('Guided practice', 'Learning mode', 'Answer one question at a time with instant explanations.')}${body}`
+  return `${pageHeading('Guided practice', 'Learning mode', 'Answer one question at a time with instant explanations.', timer)}${body}`
 }
 
 function renderLearningQuestion() {
@@ -452,16 +477,24 @@ function formatTime(milliseconds) {
 }
 
 function updateTimer() {
-  if (!state.exam || state.exam.submittedAt) return
-  const remaining = state.exam.endsAt - Date.now()
-  if (remaining <= 0) {
-    state.exam.submittedAt = Date.now()
-    saveState()
-    render()
-    return
+  const now = Date.now()
+  if (state.exam && !state.exam.submittedAt) {
+    const remaining = state.exam.endsAt - now
+    if (remaining <= 0) {
+      state.exam.submittedAt = now
+      saveState()
+      render()
+    } else {
+      const timer = document.querySelector('#timer-value')
+      if (timer) timer.textContent = formatTime(remaining)
+    }
   }
-  const timer = document.querySelector('#timer-value')
-  if (timer) timer.textContent = formatTime(remaining)
+
+  if (state.learning?.currentQuestionId && !state.learning.questionAnsweredAt) {
+    if (ensureLearningTiming()) saveState()
+    const timer = document.querySelector('#learning-timer-value')
+    if (timer) timer.textContent = formatTime(now - state.learning.questionStartedAt)
+  }
 }
 
 async function loadQuestionFile(file) {
@@ -572,11 +605,13 @@ function handleClick(event) {
       render()
     }
   } else if (action === 'learning-answer') {
+    if (state.learning.selectedChoiceId !== null) return
     const question = questionMap().get(state.learning.currentQuestionId)
     const choice = question.choices.find((item) => item.id === button.dataset.choice)
     const correct = choice.letter === question.keyAnswer
     state.learning.selectedChoiceId = choice.id
     state.learning.isCorrect = correct
+    state.learning.questionAnsweredAt = Date.now()
     state.learning.correctCount += correct ? 1 : 0
     state.learning.incorrectCount += correct ? 0 : 1
     saveState()
