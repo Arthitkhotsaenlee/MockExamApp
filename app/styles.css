@@ -242,7 +242,7 @@ h2 { margin-bottom: 5px; color: var(--navy); font-size: 18px; letter-spacing: -.
 .review-number { width: 34px; height: 34px; display: grid; place-items: center; color: var(--primary); background: var(--primary-soft); border-radius: 8px; font-size: 11px; font-weight: 800; }
 .review-summary { min-width: 0; }
 .review-summary strong, .review-summary small { display: block; }
-.review-summary strong { overflow: hidden; color: #364054; font-size: 12px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.review-summary strong { color: #364054; font-size: 12px; line-height: 1.45; white-space: normal; }
 .review-summary small { margin-top: 3px; color: #929aab; font-size: 10px; }
 .review-status { padding: 6px 9px; border-radius: 999px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .review-status.correct { color: #08724d; background: var(--green-soft); }
@@ -294,7 +294,6 @@ h2 { margin-bottom: 5px; color: var(--navy); font-size: 18px; letter-spacing: -.
   .result-stats { justify-content: center; }
   .review-item summary { grid-template-columns: 32px minmax(0, 1fr); }
   .review-status { grid-column: 2; justify-self: start; }
-  .review-summary strong { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .review-body { padding: 16px; }
 }
 
