@@ -389,7 +389,30 @@ function renderResult() {
   const result = calculateResult()
   const passed = result.percent >= 70
   const color = passed ? 'var(--green)' : 'var(--red)'
-  return `<section class="card result-card"><div class="score-ring ${passed ? 'passed' : ''}" style="background:conic-gradient(${color} ${result.percent}%, #eef0f5 0)"><strong>${result.percent}%</strong><span>${passed ? 'Great work' : 'Keep learning'}</span></div><div class="result-copy"><p class="eyebrow">Exam complete</p><h2>Your results</h2><p>You answered ${result.correct} of ${result.total} questions correctly.</p><div class="result-stats"><div><strong>${result.correct}</strong><span>Correct</span></div><div><strong>${result.incorrect}</strong><span>Incorrect</span></div><div><strong>${result.unanswered}</strong><span>Unanswered</span></div></div><button class="primary" data-action="new-exam">Create another exam</button></div></section>`
+  return `<div class="result-layout"><section class="card result-card"><div class="score-ring ${passed ? 'passed' : ''}" style="background:conic-gradient(${color} ${result.percent}%, #eef0f5 0)"><strong>${result.percent}%</strong><span>${passed ? 'Great work' : 'Keep learning'}</span></div><div class="result-copy"><p class="eyebrow">Exam complete</p><h2>Your results</h2><p>You answered ${result.correct} of ${result.total} questions correctly.</p><div class="result-stats"><div><strong>${result.correct}</strong><span>Correct</span></div><div><strong>${result.incorrect}</strong><span>Incorrect</span></div><div><strong>${result.unanswered}</strong><span>Unanswered</span></div></div><button class="primary" data-action="new-exam">Create another exam</button></div></section>${renderAnswerReview(result)}</div>`
+}
+
+function renderAnswerReview(result) {
+  const questions = result.details.map((detail, index) => {
+    const statusLabel = detail.status === 'correct' ? 'Correct' : detail.status === 'incorrect' ? 'Incorrect' : 'Unanswered'
+    const selectedAnswer = detail.selectedChoice
+      ? `${detail.selectedChoice.letter}. ${detail.selectedChoice.text}`
+      : 'Not answered'
+    const correctAnswer = detail.correctChoice
+      ? `${detail.correctChoice.letter}. ${detail.correctChoice.text}`
+      : detail.question.keyAnswer
+    const choices = detail.question.choices.map((choice) => {
+      const isCorrect = choice.letter === detail.question.keyAnswer
+      const isSelected = detail.selectedChoice?.id === choice.id
+      const className = isCorrect ? 'correct' : isSelected ? 'incorrect' : ''
+      const marker = isCorrect ? '✓' : isSelected ? '×' : ''
+      return `<button type="button" disabled class="${className}"><span class="choice-letter">${choice.letter}</span><span>${escapeHtml(choice.text)}</span><span class="choice-check">${marker}</span></button>`
+    }).join('')
+
+    return `<details class="card review-item ${detail.status}"><summary><span class="review-number">${index + 1}</span><span class="review-summary"><strong>${escapeHtml(detail.question.question)}</strong><small>Domain ${detail.question.domainaIndex} · ${escapeHtml(detail.question.domain)}</small></span><span class="review-status ${detail.status}">${statusLabel}</span></summary><div class="review-body"><div class="review-answer-line"><span>Your answer: <strong>${escapeHtml(selectedAnswer)}</strong></span><span>Correct answer: <strong>${escapeHtml(correctAnswer)}</strong></span></div><div class="choices review-choices">${choices}</div><div class="explanation"><strong>Explanation</strong><p>${escapeHtml(detail.question.justification)}</p></div></div></details>`
+  }).join('')
+
+  return `<section class="answer-review" aria-labelledby="answer-review-title"><div class="review-heading"><div><p class="eyebrow">Answer key</p><h2 id="answer-review-title">Review every question</h2><p>Open a question to compare your answer with the correct answer and explanation.</p></div></div><div class="review-list">${questions}</div></section>`
 }
 
 function renderLearning() {

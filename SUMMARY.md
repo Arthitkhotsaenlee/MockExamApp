@@ -48,7 +48,7 @@ Questions remain randomized in mock-exam and learning sessions. Answer choices a
 
 ### Mock-exam mode
 
-Mock exams provide configurable question counts and duration, weighted domain allocation, randomized question selection, a persistent countdown timer, automatic submission, question navigation, flags, and score results.
+Mock exams provide configurable question counts and duration, weighted domain allocation, randomized question selection, a persistent countdown timer, automatic submission, question navigation, flags, and score results. After submission, the result page reveals each question's selected answer, correct answer, highlighted choices, and explanation. Answers remain hidden while the exam is active.
 
 ### Learning mode
 

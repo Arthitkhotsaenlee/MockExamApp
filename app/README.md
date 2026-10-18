@@ -63,6 +63,7 @@ The JSON root must be an array. Every question requires the following string fie
 - Persistent timer with automatic submission
 - Question navigation, answered indicators, and flags
 - Score summary with correct, incorrect, and unanswered counts
+- Post-exam review with each question, selected answer, correct answer, and explanation
 - Randomized no-repeat learning sessions
 - Immediate answer feedback and explanations
 - Browser persistence across refreshes
