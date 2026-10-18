@@ -2,8 +2,8 @@
 """Extract CISA OCR question records into a validated CSV file.
 
 Usage:
-    python3 extract_questions.py
-    python3 extract_questions.py --input-dir raw_data --output question.csv
+    python src/extract_questions.py
+    python src/extract_questions.py --input-dir raw_data --output data/question.csv
 """
 
 from __future__ import annotations

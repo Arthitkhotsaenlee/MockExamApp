@@ -1,55 +1,44 @@
-# CISA Question Processing and Study Applications
+# Mock Exam Question Processing and Study Application
 
-This project converts OCR-generated text files into structured CISA-style question banks and provides two browser-based study applications.
+This project converts OCR-generated text files into structured question banks and provides one dependency-free browser application in [`app/`](./app/).
 
-- **Data pipeline:** Python scripts convert source text into CSV and JSON.
-- **React application:** A React, TypeScript, and Vite implementation in [`app/`](./app/).
-- **Vanilla application:** A dependency-free HTML, CSS, and JavaScript implementation in [`app2/`](./app2/).
+- **Data pipeline:** Python utilities under [`src/`](./src/) convert source text into CSV and JSON.
+- **Study application:** Vanilla HTML, CSS, and JavaScript under [`app/`](./app/); no framework, npm installation, or build step is required.
 
-Question data is not bundled into either application. Users select a JSON file from their device, and processing remains in the browser.
+Question data is not bundled into the application. Users select a compatible JSON file from their device, and processing remains in the browser.
 
 ## Project structure
 
 ```text
 .
-├── raw_data/                 Source OCR text files
-├── data/
-│   ├── question.csv          Structured CSV question bank
-│   └── question.json         JSON question bank for the applications
+├── app/                      Browser application
+│   ├── index.html
+│   ├── styles.css
+│   ├── app.js
+│   └── README.md
+├── src/
+│   ├── extract_questions.py  OCR text-to-CSV pipeline
+│   └── csv_to_json.py        CSV-to-JSON converter
 ├── tests/
 │   └── test_extract_questions.py
-├── app/                      React + TypeScript + Vite application
-├── app2/                     Vanilla HTML + CSS + JavaScript application
-├── extract_questions.py      Text-to-CSV extraction pipeline
-├── csv_to_json.py            CSV-to-JSON converter
-├── plan.md                   Original data-processing plan
-└── SUMMARY.md                Detailed implementation summary
+├── raw_data/                 Source OCR text files (ignored by Git)
+├── data/                     Generated question banks (ignored by Git)
+└── SUMMARY.md                Implementation summary
 ```
 
 ## Data pipeline
 
-### 1. Extract questions from text
-
 Place OCR `.txt` files in `raw_data/`, then run:
 
 ```bash
-python3 extract_questions.py
+python src/extract_questions.py --output data/question.csv
+python src/csv_to_json.py --input data/question.csv --output data/question.json
 ```
 
-The extractor processes each source file once using overlapping chunks to preserve questions that cross chunk boundaries. It writes one question per row to `data/question.csv`.
-
-### 2. Convert CSV to JSON
+Run the extraction tests with:
 
 ```bash
-python3 csv_to_json.py
-```
-
-The generated `data/question.json` can be loaded into either study application.
-
-### 3. Run extraction tests
-
-```bash
-python3 -m unittest discover -s tests
+python -m unittest discover -s tests
 ```
 
 ## Question-bank schema
@@ -59,7 +48,7 @@ The CSV and JSON records use these fields:
 | Field | Description |
 | --- | --- |
 | `question` | Question text |
-| `A`, `B`, `C`, `D` | Answer choices |
+| `A`, `B`, `C`, `D` | Answer choices, displayed in this order |
 | `key answer` | Correct choice: `A`, `B`, `C`, or `D` |
 | `justification` | Explanation, with choice explanations separated by newlines |
 | `domain` | Domain title |
@@ -83,65 +72,27 @@ Example JSON:
 ]
 ```
 
-## Run the React application
+## Run the application
 
-Requirements:
-
-- Node.js 20.19+ or 22.12+
-- npm
+Open [`app/index.html`](./app/index.html) directly in a modern browser, or serve the folder locally:
 
 ```bash
 cd app
-npm install
-npm run dev
+python -m http.server 8080
 ```
 
-Open the URL displayed by Vite, normally `http://localhost:5173`.
+Then open `http://localhost:8080`.
 
-Validate and build:
+## Application behavior
 
-```bash
-npm run lint
-npm run build
-npm run preview
-```
+- All available domains are selected by default.
+- Mock-exam and learning questions are randomized.
+- Answer choices always remain in their source A–D order in both modes.
+- Mock exams use weighted domain allocation, a configurable timer, navigation, flags, and scoring.
+- Learning mode provides immediate feedback and explanations without repeating questions in a session.
+- Question banks and active sessions persist in browser local storage.
+- Reset clears the loaded question bank and saved progress.
 
-The deployable production files are written to `app/dist/`. See [`app/README.md`](./app/README.md) for maintenance and deployment details.
+Uploaded files remain on the user's device. Because answer keys are available client-side, the application is intended for personal study rather than secure or proctored examinations.
 
-## Run the dependency-free application
-
-No npm installation or build is required.
-
-```bash
-cd app2
-python3 -m http.server 8080
-```
-
-Open `http://localhost:8080`. The application may also be opened directly through `app2/index.html`, but a local server is recommended.
-
-To share it, copy the complete `app2/` directory. See [`app2/README.md`](./app2/README.md) for details.
-
-## Application features
-
-Both applications provide:
-
-- Local JSON upload and validation
-- Domain selection and question counts
-- Configurable mock exams
-- Randomized questions and answer choices
-- Countdown timer and automatic submission
-- Question navigation and flags
-- Score results
-- Learning mode with immediate feedback
-- Browser persistence across refreshes
-- Responsive desktop and mobile layouts
-- A confirmed reset to the initial state
-
-## Privacy and limitations
-
-- Uploaded question files remain on the user's device.
-- Question banks and active sessions are stored in browser local storage.
-- No backend or database server is required.
-- Answer keys are available client-side, so the applications are intended for personal study, not secure or proctored examinations.
-
-For a detailed record of the implementation and validation work, see [`SUMMARY.md`](./SUMMARY.md).
+See [`app/README.md`](./app/README.md) for application details and [`SUMMARY.md`](./SUMMARY.md) for the implementation summary.

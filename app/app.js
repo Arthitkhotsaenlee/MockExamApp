@@ -1,9 +1,9 @@
 'use strict'
 
 const STORAGE_KEYS = {
-  questionBank: 'cisa-app2-question-bank-v1',
-  activeExam: 'cisa-app2-active-exam-v1',
-  learning: 'cisa-app2-learning-v1',
+  questionBank: 'mock-exam-app-question-bank-v1',
+  activeExam: 'mock-exam-app-active-exam-v1',
+  learning: 'mock-exam-app-learning-v1',
 }
 
 const DOMAIN_WEIGHTS = { '1': 0.18, '2': 0.18, '3': 0.12, '4': 0.26, '5': 0.26 }
@@ -13,7 +13,7 @@ const state = {
   tab: 'load',
   error: null,
   questions: restoreQuestions(),
-  selectedDomains: ['1', '2', '3', '4'],
+  selectedDomains: [...DOMAIN_IDS],
   questionCount: 150,
   durationMinutes: 240,
   exam: readStorage(STORAGE_KEYS.activeExam),
@@ -198,17 +198,12 @@ function createExam() {
   for (const domain of DOMAIN_IDS) pools[domain] = shuffle(pools[domain], random)
   const allocation = allocateQuestions(state.selectedDomains, pools, count)
   const selected = shuffle(DOMAIN_IDS.flatMap((domain) => pools[domain].slice(0, allocation[domain])), random)
-  const orderByQuestionId = {}
-  const answers = selected.map((question) => {
-    orderByQuestionId[question.id] = shuffle(question.choices, random)
-    return { questionId: question.id, selectedChoiceId: null, flagged: false }
-  })
+  const answers = selected.map((question) => ({ questionId: question.id, selectedChoiceId: null, flagged: false }))
   const startedAt = Date.now()
 
   return {
     config: { selectedDomains: [...state.selectedDomains], questionCount: count, durationMinutes: state.durationMinutes },
     questionIds: selected.map((question) => question.id),
-    orderByQuestionId,
     answers,
     currentIndex: 0,
     startedAt,
@@ -229,7 +224,6 @@ function createLearning() {
     remainingQuestionIds: eligible.slice(1).map((question) => question.id),
     seenQuestionIds: [first.id],
     currentQuestionId: first.id,
-    orderByQuestionId: { [first.id]: shuffle(first.choices, random) },
     selectedChoiceId: null,
     isCorrect: null,
     correctCount: 0,
@@ -250,7 +244,6 @@ function nextLearningQuestion() {
   if (!question) return nextLearningQuestion()
   state.learning.currentQuestionId = nextId
   state.learning.seenQuestionIds.push(nextId)
-  state.learning.orderByQuestionId[nextId] = shuffle(question.choices, seededRandom(Date.now()))
   state.learning.selectedChoiceId = null
   state.learning.isCorrect = null
 }
@@ -266,7 +259,7 @@ function calculateResult() {
   for (const answer of state.exam.answers) {
     const question = questions.get(answer.questionId)
     if (!question) continue
-    const choices = state.exam.orderByQuestionId[question.id]
+    const choices = question.choices
     const selectedChoice = choices.find((choice) => choice.id === answer.selectedChoiceId) || null
     const correctChoice = choices.find((choice) => choice.letter === question.keyAnswer)
     const key = `${question.domainaIndex} - ${question.domain}`
@@ -371,7 +364,7 @@ function renderMockSetup() {
       <label><span>Time limit</span><div class="input-suffix"><input data-setting="duration" type="number" min="1" value="${state.durationMinutes}"><span>min</span></div><small>Recommended: 1.6 minutes per question</small></label>
     </div>
     ${renderDomainSelector()}
-    <div class="setup-footer"><p>Questions and choices will be shuffled automatically.</p><button class="primary" data-action="start-mock">Start mock exam <span>→</span></button></div>
+    <div class="setup-footer"><p>Questions are randomized; answer choices remain in A–D order.</p><button class="primary" data-action="start-mock">Start mock exam <span>→</span></button></div>
   </section>`
 }
 
@@ -382,7 +375,7 @@ function renderExamQuestion() {
   if (!question) return `<div class="empty-state"><strong>Question not found</strong></div>`
   const answered = exam.answers.filter((entry) => entry.selectedChoiceId).length
   const progress = (exam.currentIndex + 1) / exam.answers.length * 100
-  const choices = exam.orderByQuestionId[question.id]
+  const choices = question.choices
 
   return `<section class="question-layout">
     <aside class="question-map"><div><strong>Questions</strong><small>${answered} of ${exam.answers.length} answered</small></div><div class="navigator">${exam.answers.map((entry, index) => `<button data-action="exam-goto" data-index="${index}" class="${index === exam.currentIndex ? 'active' : ''} ${entry.selectedChoiceId ? 'answered' : ''} ${entry.flagged ? 'flagged' : ''}" aria-label="Question ${index + 1}${entry.flagged ? ', flagged' : ''}">${index + 1}</button>`).join('')}</div><div class="map-legend"><span><i class="answered"></i> Answered</span><span><i class="flagged"></i> Flagged</span></div></aside>
@@ -415,7 +408,7 @@ function renderLearningQuestion() {
   const learning = state.learning
   const question = questionMap().get(learning.currentQuestionId)
   if (!question) return `<div class="empty-state"><strong>Question not found</strong></div>`
-  const choices = learning.orderByQuestionId[question.id] || question.choices
+  const choices = question.choices
   const currentNumber = learning.seenQuestionIds.length
   const totalQuestions = currentNumber + learning.remainingQuestionIds.length
   const answered = learning.selectedChoiceId !== null
@@ -454,6 +447,7 @@ async function loadQuestionFile(file) {
     const questions = parseQuestionBank(JSON.parse(await file.text()))
     if (!questions.length) throw new Error('No valid questions found in the selected file.')
     state.questions = questions
+    state.selectedDomains = [...DOMAIN_IDS]
     state.exam = null
     state.learning = null
     state.error = null
@@ -501,7 +495,7 @@ function handleClick(event) {
     state.tab = 'load'
     state.error = null
     state.questions = []
-    state.selectedDomains = ['1', '2', '3', '4']
+    state.selectedDomains = [...DOMAIN_IDS]
     state.questionCount = 150
     state.durationMinutes = 240
     state.exam = null

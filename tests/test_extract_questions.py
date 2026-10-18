@@ -5,7 +5,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from extract_questions import (
+from src.extract_questions import (
     CSV_FIELDS,
     ExtractedRecord,
     deduplicate,

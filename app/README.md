@@ -1,6 +1,6 @@
-# CISA Study — Vanilla HTML, CSS, and JavaScript
+# Mock Exam Study — Vanilla HTML, CSS, and JavaScript
 
-This is a dependency-free version of the exam practice application. It provides the same core mock-exam and learning workflows without React, TypeScript, Vite, npm, or a build step.
+This dependency-free exam practice application provides mock-exam and learning workflows using only HTML, CSS, and JavaScript, with no npm installation or build step.
 
 Question data is not bundled. Each user selects a compatible JSON question bank from their own device, and all data remains in browser local storage.
 
@@ -12,10 +12,10 @@ Open `index.html` in a modern browser. Most current browsers support the require
 
 ### Recommended local server
 
-From the `app2` directory, use any static HTTP server. For example, with Python:
+From the `app` directory, use any static HTTP server. For example, with Python:
 
 ```bash
-python3 -m http.server 8080
+python -m http.server 8080
 ```
 
 Then open `http://localhost:8080`.
@@ -26,7 +26,7 @@ No npm installation or build command is required.
 
 - `index.html` — static page structure and application shell.
 - `styles.css` — responsive desktop and mobile presentation.
-- `app.js` — validation, state, randomization, exam, scoring, learning, storage, and rendering logic.
+- `app.js` — validation, state, question randomization, exam, scoring, learning, storage, and rendering logic.
 
 All three files must remain together when the application is copied or deployed.
 
@@ -56,10 +56,10 @@ The JSON root must be an array. Every question requires the following string fie
 
 - Local JSON upload and row validation
 - Stable question IDs and duplicate removal
-- Domain counts and selection
+- Domain counts and selection, with all domains selected by default
 - Configurable mock-exam size and duration
 - Weighted, randomized question selection
-- Shuffled answer choices
+- Answer choices retained in A–D order in mock-exam and learning modes
 - Persistent timer with automatic submission
 - Question navigation, answered indicators, and flags
 - Score summary with correct, incorrect, and unanswered counts
@@ -73,14 +73,14 @@ The JSON root must be an array. Every question requires the following string fie
 
 This version uses these local-storage keys:
 
-- `cisa-app2-question-bank-v1`
-- `cisa-app2-active-exam-v1`
-- `cisa-app2-learning-v1`
+- `mock-exam-app-question-bank-v1`
+- `mock-exam-app-active-exam-v1`
+- `mock-exam-app-learning-v1`
 
 Use **Reset app** to remove the question bank and all saved progress.
 
 ## Share or deploy
 
-Copy the complete `app2` folder, or upload its three application files to any static web host. A recipient only needs a modern browser and does not need npm.
+Copy the complete `app` folder, or upload its three application files to any static web host. A recipient only needs a modern browser and does not need npm.
 
 Because answer keys are available in browser storage, this application is intended for study rather than secure or proctored examinations.
