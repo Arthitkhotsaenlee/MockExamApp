@@ -5,45 +5,48 @@ const STORAGE_KEYS = {
   activeExam: 'mock-exam-app-active-exam-v1',
   learning: 'mock-exam-app-learning-v1',
   fontScale: 'mock-exam-app-font-scale-v1',
+  domainWeights: 'mock-exam-app-domain-weights-v1',
 }
 
-const DOMAIN_WEIGHTS = { '1': 0.18, '2': 0.18, '3': 0.12, '4': 0.26, '5': 0.26 }
+const DEFAULT_DOMAIN_WEIGHTS = { '1': 18, '2': 18, '3': 12, '4': 26, '5': 26 }
 const DOMAIN_IDS = ['1', '2', '3', '4', '5']
 const FONT_SCALES = [0.9, 1, 1.1, 1.2, 1.3]
 const LEGACY_STORAGE_KEYS = [
-  'cisa-app-question-bank-v1',
-  'cisa-app-active-exam-v1',
-  'cisa-app-learning-v1',
-  'cisa-app2-question-bank-v1',
-  'cisa-app2-active-exam-v1',
-  'cisa-app2-learning-v1',
+  'mock-exam-legacy-app-question-bank-v1',
+  'mock-exam-legacy-app-active-exam-v1',
+  'mock-exam-legacy-app-learning-v1',
+  'mock-exam-legacy-app2-question-bank-v1',
+  'mock-exam-legacy-app2-active-exam-v1',
+  'mock-exam-legacy-app2-learning-v1',
   'Mock-exam-app-question-bank-v1',
   'Mock-exam-app-active-exam-v1',
   'Mock-exam-app-learning-v1',
 ]
 let questionBankNeedsCompaction = false
 
+clearSavedProgress()
+const restoredQuestions = restoreQuestions()
+
 const state = {
   tab: 'load',
   error: null,
   storageWarning: null,
-  questions: restoreQuestions(),
-  selectedDomains: [...DOMAIN_IDS],
+  questions: restoredQuestions,
+  selectedDomains: restoredQuestions.length
+    ? [...new Set(restoredQuestions.map((question) => question.domainIndex))].sort()
+    : [...DOMAIN_IDS],
+  domainWeights: normalizeDomainWeights(restoreDomainWeights(), restoredQuestions),
   questionCount: 150,
   durationMinutes: 240,
-  exam: readStorage(STORAGE_KEYS.activeExam),
-  learning: readStorage(STORAGE_KEYS.learning),
+  exam: null,
+  learning: null,
   fontScale: restoreFontScale(),
-}
-
-if (!state.questions.length) {
-  state.exam = null
-  state.learning = null
 }
 
 if (questionBankNeedsCompaction && state.questions.length) {
   writeStorage(STORAGE_KEYS.questionBank, serializeQuestionBank(state.questions))
 }
+if (state.questions.length) writeStorage(STORAGE_KEYS.domainWeights, state.domainWeights)
 
 const main = document.querySelector('#main-content')
 
@@ -81,7 +84,7 @@ function writeStorage(key, value) {
         // Continue with in-memory state and show the non-blocking warning below.
       }
     }
-    state.storageWarning = 'Persistent browser storage is unavailable or full. You can continue in this tab, but the question bank and progress may be lost after a refresh. Clear this site\'s stored data or allow browser storage to restore persistence.'
+    state.storageWarning = 'Persistent browser storage is unavailable or full. You can continue in this tab, but the question bank and settings may be lost after a refresh. Clear this site\'s stored data or allow browser storage to restore persistence.'
     return false
   }
 }
@@ -105,6 +108,15 @@ function clearLegacyStorage() {
   return removed
 }
 
+function clearSavedProgress() {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.activeExam)
+    localStorage.removeItem(STORAGE_KEYS.learning)
+  } catch {
+    // Progress remains memory-only even when browser storage is unavailable.
+  }
+}
+
 function restoreQuestions() {
   const stored = readStorage(STORAGE_KEYS.questionBank)
   if (!Array.isArray(stored)) return []
@@ -125,7 +137,7 @@ function restoreQuestion(stored) {
   } else if (stored && typeof stored === 'object' && Array.isArray(stored.choices)) {
     preservedId = typeof stored.id === 'string' ? stored.id : null
     const choices = Object.fromEntries(stored.choices.map((choice) => [choice?.letter, choice?.text]))
-    values = [stored.question, choices.A, choices.B, choices.C, choices.D, stored.keyAnswer, stored.justification, stored.domain, stored.domainaIndex]
+    values = [stored.question, choices.A, choices.B, choices.C, choices.D, stored.keyAnswer, stored.justification, stored.domain, stored.domainIndex]
   } else {
     return null
   }
@@ -144,7 +156,7 @@ function restoreQuestion(stored) {
     keyAnswer: values[5],
     justification: values[6],
     domain: values[7],
-    domainaIndex: values[8],
+    domainIndex: values[8],
   }
 }
 
@@ -156,7 +168,7 @@ function serializeQuestionBank(questions) {
     question.keyAnswer,
     question.justification,
     question.domain,
-    question.domainaIndex,
+    question.domainIndex,
   ])
 }
 
@@ -165,15 +177,46 @@ function restoreFontScale() {
   return FONT_SCALES.includes(saved) ? saved : 1
 }
 
+function validDomainWeights(weights) {
+  if (!weights || typeof weights !== 'object') return false
+  const values = DOMAIN_IDS.map((domain) => weights[domain])
+  return values.every((value) => Number.isFinite(value) && value >= 0 && value <= 100) &&
+    Math.abs(values.reduce((sum, value) => sum + value, 0) - 100) < 0.001
+}
+
+function restoreDomainWeights() {
+  const saved = readStorage(STORAGE_KEYS.domainWeights)
+  return validDomainWeights(saved) ? { ...saved } : { ...DEFAULT_DOMAIN_WEIGHTS }
+}
+
+function normalizeDomainWeights(weights, questions) {
+  const available = DOMAIN_IDS.filter((domain) => questions.some((question) => question.domainIndex === domain))
+  if (!available.length) return { ...DEFAULT_DOMAIN_WEIGHTS }
+  const normalized = Object.fromEntries(DOMAIN_IDS.map((domain) => [domain, 0]))
+  const sourceTotal = available.reduce((sum, domain) => sum + weights[domain], 0)
+  const source = sourceTotal > 0
+    ? weights
+    : Object.fromEntries(DOMAIN_IDS.map((domain) => [domain, available.includes(domain) ? 1 : 0]))
+  const total = available.reduce((sum, domain) => sum + source[domain], 0)
+  let assigned = 0
+  available.forEach((domain, index) => {
+    const value = index === available.length - 1
+      ? 100 - assigned
+      : Math.round(source[domain] / total * 10000) / 100
+    normalized[domain] = value
+    assigned += value
+  })
+  return normalized
+}
+
 function applyFontScale() {
   document.documentElement.style.setProperty('--font-scale', String(state.fontScale))
 }
 
-function saveState({ questionBank = false } = {}) {
-  writeStorage(STORAGE_KEYS.activeExam, state.exam)
-  writeStorage(STORAGE_KEYS.learning, state.learning)
+function saveState({ questionBank = false, domainWeights = false } = {}) {
   writeStorage(STORAGE_KEYS.fontScale, state.fontScale)
   if (questionBank) writeStorage(STORAGE_KEYS.questionBank, state.questions.length ? serializeQuestionBank(state.questions) : null)
+  if (domainWeights) writeStorage(STORAGE_KEYS.domainWeights, state.domainWeights)
 }
 
 function escapeHtml(value) {
@@ -208,8 +251,8 @@ function parseQuestionBank(raw) {
     if (!['A', 'B', 'C', 'D'].includes(item['key answer'])) {
       throw new Error(`Row ${index + 1}: invalid key answer.`)
     }
-    if (typeof item.domaina_index !== 'string' || !DOMAIN_IDS.includes(item.domaina_index)) {
-      throw new Error(`Row ${index + 1}: invalid domaina_index.`)
+    if (typeof item.domain_index !== 'string' || !DOMAIN_IDS.includes(item.domain_index)) {
+      throw new Error(`Row ${index + 1}: invalid domain_index.`)
     }
 
     const id = hashString(`${item.question}|${item.A}|${item.B}|${item.C}|${item.D}`)
@@ -220,7 +263,7 @@ function parseQuestionBank(raw) {
       keyAnswer: item['key answer'],
       justification: item.justification.trim(),
       domain: item.domain.trim(),
-      domainaIndex: item.domaina_index,
+      domainIndex: item.domain_index,
     }
   })
 
@@ -230,9 +273,9 @@ function parseQuestionBank(raw) {
 function getDomains() {
   const domains = new Map()
   for (const question of state.questions) {
-    const current = domains.get(question.domainaIndex)
+    const current = domains.get(question.domainIndex)
     if (current) current.count += 1
-    else domains.set(question.domainaIndex, { domainIndex: question.domainaIndex, domain: question.domain, count: 1 })
+    else domains.set(question.domainIndex, { domainIndex: question.domainIndex, domain: question.domain, count: 1 })
   }
   return [...domains.values()].sort((a, b) => Number(a.domainIndex) - Number(b.domainIndex))
 }
@@ -260,13 +303,13 @@ function shuffle(items, random) {
   return copy
 }
 
-function allocateQuestions(selectedDomains, pools, total) {
+function allocateQuestions(selectedDomains, pools, total, domainWeights) {
   const allocation = Object.fromEntries(DOMAIN_IDS.map((domain) => [domain, 0]))
-  const eligible = selectedDomains.filter((domain) => pools[domain].length)
+  const eligible = selectedDomains.filter((domain) => pools[domain].length && domainWeights[domain] > 0)
   if (!eligible.length || total <= 0) return allocation
 
-  const weightTotal = eligible.reduce((sum, domain) => sum + DOMAIN_WEIGHTS[domain], 0)
-  const quotas = eligible.map((domain) => ({ domain, value: total * DOMAIN_WEIGHTS[domain] / weightTotal }))
+  const weightTotal = eligible.reduce((sum, domain) => sum + domainWeights[domain], 0)
+  const quotas = eligible.map((domain) => ({ domain, value: total * domainWeights[domain] / weightTotal }))
   let assigned = 0
 
   for (const quota of quotas) {
@@ -296,22 +339,29 @@ function allocateQuestions(selectedDomains, pools, total) {
 function createExam() {
   if (!state.questions.length) throw new Error('Upload a JSON question file first.')
   if (!state.selectedDomains.length) throw new Error('Select at least one domain.')
+  if (!validDomainWeights(state.domainWeights)) throw new Error('Domain weights must total 100%.')
+  if (!state.selectedDomains.some((domain) => state.domainWeights[domain] > 0)) throw new Error('At least one selected domain must have a weight greater than 0%.')
 
   const pools = Object.fromEntries(DOMAIN_IDS.map((domain) => [domain, []]))
-  for (const question of state.questions) pools[question.domainaIndex].push(question)
-  const available = state.selectedDomains.reduce((sum, domain) => sum + pools[domain].length, 0)
-  if (!available) throw new Error('No questions are available for the selected domains.')
+  for (const question of state.questions) pools[question.domainIndex].push(question)
+  const available = state.selectedDomains.reduce((sum, domain) => sum + (state.domainWeights[domain] > 0 ? pools[domain].length : 0), 0)
+  if (!available) throw new Error('No questions are available for the selected weighted domains.')
 
   const count = Math.max(1, Math.min(state.questionCount, available))
   const random = seededRandom(Date.now())
   for (const domain of DOMAIN_IDS) pools[domain] = shuffle(pools[domain], random)
-  const allocation = allocateQuestions(state.selectedDomains, pools, count)
+  const allocation = allocateQuestions(state.selectedDomains, pools, count, state.domainWeights)
   const selected = shuffle(DOMAIN_IDS.flatMap((domain) => pools[domain].slice(0, allocation[domain])), random)
   const answers = selected.map((question) => ({ questionId: question.id, selectedChoiceId: null, flagged: false }))
   const startedAt = Date.now()
 
   return {
-    config: { selectedDomains: [...state.selectedDomains], questionCount: count, durationMinutes: state.durationMinutes },
+    config: {
+      selectedDomains: [...state.selectedDomains],
+      domainWeights: { ...state.domainWeights },
+      questionCount: count,
+      durationMinutes: state.durationMinutes,
+    },
     questionIds: selected.map((question) => question.id),
     answers,
     currentIndex: 0,
@@ -325,7 +375,7 @@ function createLearning() {
   if (!state.questions.length) throw new Error('Upload a JSON question file first.')
   if (!state.selectedDomains.length) throw new Error('Select at least one domain.')
   const random = seededRandom(Date.now())
-  const eligible = shuffle(state.questions.filter((question) => state.selectedDomains.includes(question.domainaIndex)), random)
+  const eligible = shuffle(state.questions.filter((question) => state.selectedDomains.includes(question.domainIndex)), random)
   if (!eligible.length) throw new Error('No questions are available for the selected domains.')
   const first = eligible[0]
   const questionStartedAt = Date.now()
@@ -392,7 +442,7 @@ function calculateResult() {
     const choices = question.choices
     const selectedChoice = choices.find((choice) => choice.id === answer.selectedChoiceId) || null
     const correctChoice = choices.find((choice) => choice.letter === question.keyAnswer)
-    const key = `${question.domainaIndex} - ${question.domain}`
+    const key = `${question.domainIndex} - ${question.domain}`
     byDomain[key] ||= { correct: 0, incorrect: 0, unanswered: 0, total: 0 }
     byDomain[key].total += 1
     let status = 'unanswered'
@@ -457,6 +507,7 @@ function renderDashboard() {
   const coverage = domains.length
     ? `<section class="card domain-overview"><div class="section-title"><div><h2>Question coverage</h2><p>Your available questions by domain</p></div><span class="pill">${state.questions.length} total</span></div><div class="domain-grid">${domains.map((domain) => `<div class="domain-stat"><span class="domain-number">${domain.domainIndex}</span><div><strong>${escapeHtml(domain.domain)}</strong><small>${domain.count} questions</small></div></div>`).join('')}</div></section>`
     : ''
+  const weightEditor = domains.length ? renderDomainWeightEditor(domains) : ''
 
   return `${pageHeading('Dashboard', 'Ready to study?', 'Load your question bank, then choose how you want to practise.')}
     <section class="dashboard-grid">
@@ -470,7 +521,20 @@ function renderDashboard() {
         <button class="mode-card" data-action="tab" data-tab="mock" ${state.questions.length ? '' : 'disabled'}><span><strong>Mock exam</strong><small>Timed practice with results at the end</small></span><b>→</b></button>
         <button class="mode-card" data-action="tab" data-tab="learn" ${state.questions.length ? '' : 'disabled'}><span><strong>Learning mode</strong><small>Immediate feedback after every answer</small></span><b>→</b></button>
       </article>
-    </section>${coverage}`
+    </section>${coverage}${weightEditor}`
+}
+
+function renderDomainWeightEditor(domains) {
+  const total = DOMAIN_IDS.reduce((sum, domain) => sum + state.domainWeights[domain], 0)
+  const displayTotal = Math.round(total * 100) / 100
+  const valid = validDomainWeights(state.domainWeights)
+  const rows = DOMAIN_IDS.map((domainIndex) => {
+    const domain = domains.find((item) => item.domainIndex === domainIndex)
+    const title = domain?.domain || `Domain ${domainIndex}`
+    const count = domain?.count || 0
+    return `<label class="weight-row ${count ? '' : 'unavailable'}"><span class="domain-number">${domainIndex}</span><span class="weight-domain"><strong>${escapeHtml(title)}</strong><small>${count} questions available</small></span><span class="weight-input"><input data-setting="domain-weight" data-domain="${domainIndex}" type="number" min="0" max="100" step="0.01" value="${state.domainWeights[domainIndex]}" ${count ? '' : 'disabled'}><span>%</span></span></label>`
+  }).join('')
+  return `<section class="card weight-editor"><div class="section-title"><div><h2>Exam domain weights</h2><p>Set the percentage of mock-exam questions assigned to each domain.</p></div><button class="secondary compact" data-action="restore-domain-weights">Restore defaults</button></div><div class="weight-grid">${rows}</div><div class="weight-total ${valid ? 'valid' : 'invalid'}" role="status"><span>Total</span><strong>${displayTotal}%</strong><small>${valid ? 'Ready to create exams' : 'Weights must total 100%'}</small></div></section>`
 }
 
 function renderDomainSelector() {
@@ -494,6 +558,7 @@ function renderMock() {
 }
 
 function renderMockSetup() {
+  const weightsValid = validDomainWeights(state.domainWeights)
   return `<section class="card setup-card">
     <div class="section-title"><div><h2>Exam settings</h2><p>Customise the session before you begin.</p></div></div>
     <div class="controls">
@@ -501,7 +566,7 @@ function renderMockSetup() {
       <label><span>Time limit</span><div class="input-suffix"><input data-setting="duration" type="number" min="1" value="${state.durationMinutes}"><span>min</span></div><small>Recommended: 1.6 minutes per question</small></label>
     </div>
     ${renderDomainSelector()}
-    <div class="setup-footer"><p>Questions are randomized; answer choices remain in A–D order.</p><button class="primary" data-action="start-mock">Start mock exam <span>→</span></button></div>
+    <div class="setup-footer"><p>${weightsValid ? 'Questions are randomized using the Dashboard domain weights; answer choices remain in A–D order.' : 'Return to the Dashboard and make the domain weights total 100%.'}</p><button class="primary" data-action="start-mock" ${weightsValid ? '' : 'disabled'}>Start mock exam <span>→</span></button></div>
   </section>`
 }
 
@@ -516,7 +581,7 @@ function renderExamQuestion() {
 
   return `<section class="question-layout">
     <aside class="question-map"><div><strong>Questions</strong><small>${answered} of ${exam.answers.length} answered</small></div><div class="navigator">${exam.answers.map((entry, index) => `<button data-action="exam-goto" data-index="${index}" class="${index === exam.currentIndex ? 'active' : ''} ${entry.selectedChoiceId ? 'answered' : ''} ${entry.flagged ? 'flagged' : ''}" aria-label="Question ${index + 1}${entry.flagged ? ', flagged' : ''}">${index + 1}</button>`).join('')}</div><div class="map-legend"><span><i class="answered"></i> Answered</span><span><i class="flagged"></i> Flagged</span></div></aside>
-    <div class="question-panel"><div class="progress"><span style="width:${progress}%"></span></div><div class="question-meta"><span>Question ${exam.currentIndex + 1} of ${exam.answers.length}</span><span>Domain ${question.domainaIndex}</span></div><h2 class="question-text">${escapeHtml(question.question)}</h2><div class="choices">${choices.map((choice) => `<button data-action="exam-answer" data-choice="${choice.id}" class="${answer.selectedChoiceId === choice.id ? 'selected' : ''}"><span class="choice-letter">${choice.letter}</span><span>${escapeHtml(choice.text)}</span><span class="choice-check">✓</span></button>`).join('')}</div>
+    <div class="question-panel"><div class="progress"><span style="width:${progress}%"></span></div><div class="question-meta"><span>Question ${exam.currentIndex + 1} of ${exam.answers.length}</span><span>Domain ${question.domainIndex}</span></div><h2 class="question-text">${escapeHtml(question.question)}</h2><div class="choices">${choices.map((choice) => `<button data-action="exam-answer" data-choice="${choice.id}" class="${answer.selectedChoiceId === choice.id ? 'selected' : ''}"><span class="choice-letter">${choice.letter}</span><span>${escapeHtml(choice.text)}</span><span class="choice-check">✓</span></button>`).join('')}</div>
       <div class="exam-actions"><button class="flag-button ${answer.flagged ? 'active' : ''}" data-action="exam-flag">⚑ ${answer.flagged ? 'Flagged' : 'Flag for review'}</button><div><button class="secondary" data-action="exam-prev" ${exam.currentIndex === 0 ? 'disabled' : ''}>← Previous</button>${exam.currentIndex < exam.answers.length - 1 ? '<button class="primary" data-action="exam-next">Next <span>→</span></button>' : '<button class="primary" data-action="exam-submit">Submit exam</button>'}</div></div>
     </div>
   </section>`
@@ -546,7 +611,7 @@ function renderAnswerReview(result) {
       return `<button type="button" disabled class="${className}"><span class="choice-letter">${choice.letter}</span><span>${escapeHtml(choice.text)}</span><span class="choice-check">${marker}</span></button>`
     }).join('')
 
-    return `<details class="card review-item ${detail.status}"><summary><span class="review-number">${index + 1}</span><span class="review-summary"><strong>${escapeHtml(detail.question.question)}</strong><small>Domain ${detail.question.domainaIndex} · ${escapeHtml(detail.question.domain)}</small></span><span class="review-status ${detail.status}">${statusLabel}</span></summary><div class="review-body"><div class="review-answer-line"><span>Your answer: <strong>${escapeHtml(selectedAnswer)}</strong></span><span>Correct answer: <strong>${escapeHtml(correctAnswer)}</strong></span></div><div class="choices review-choices">${choices}</div><div class="explanation"><strong>Explanation</strong><p>${escapeHtml(detail.question.justification)}</p></div></div></details>`
+    return `<details class="card review-item ${detail.status}"><summary><span class="review-number">${index + 1}</span><span class="review-summary"><strong>${escapeHtml(detail.question.question)}</strong><small>Domain ${detail.question.domainIndex} · ${escapeHtml(detail.question.domain)}</small></span><span class="review-status ${detail.status}">${statusLabel}</span></summary><div class="review-body"><div class="review-answer-line"><span>Your answer: <strong>${escapeHtml(selectedAnswer)}</strong></span><span>Correct answer: <strong>${escapeHtml(correctAnswer)}</strong></span></div><div class="choices review-choices">${choices}</div><div class="explanation"><strong>Explanation</strong><p>${escapeHtml(detail.question.justification)}</p></div></div></details>`
   }).join('')
 
   return `<section class="answer-review" aria-labelledby="answer-review-title"><div class="review-heading"><div><p class="eyebrow">Answer key</p><h2 id="answer-review-title">Review every question</h2><p>Open a question to compare your answer with the correct answer and explanation.</p></div></div><div class="review-list">${questions}</div></section>`
@@ -557,6 +622,9 @@ function renderLearning() {
   const timer = state.learning?.currentQuestionId
     ? `<div class="timer"><small>${state.learning.questionAnsweredAt ? 'Time taken' : 'Time on question'}</small><strong id="learning-timer-value">${formatTime((state.learning.questionAnsweredAt || Date.now()) - state.learning.questionStartedAt)}</strong></div>`
     : ''
+  const headingActions = state.learning
+    ? `<div class="learning-heading-actions">${timer}<button class="secondary" data-action="end-learning">End session</button></div>`
+    : ''
   let body
   if (!state.learning) {
     body = `<section class="card setup-card"><div class="section-title"><div><h2>Choose your focus</h2><p>Select one or more domains for this session.</p></div></div>${renderDomainSelector()}<div class="setup-footer"><p>Questions will not repeat during this session.</p><button class="primary" data-action="start-learning">Start learning <span>→</span></button></div></section>`
@@ -565,7 +633,7 @@ function renderLearning() {
   } else {
     body = `<section class="card exam-card">${renderLearningQuestion()}</section>`
   }
-  return `${pageHeading('Guided practice', 'Learning mode', 'Answer one question at a time with instant explanations.', timer)}${body}`
+  return `${pageHeading('Guided practice', 'Learning mode', 'Answer one question at a time with instant explanations.', headingActions)}${body}`
 }
 
 function renderLearningQuestion() {
@@ -584,7 +652,7 @@ function renderLearningQuestion() {
   const feedback = answered
     ? `<section class="feedback ${learning.isCorrect ? 'good' : 'bad'}"><div class="feedback-title"><span>${learning.isCorrect ? '✓' : '!'}</span><div><strong>${learning.isCorrect ? 'Correct answer' : 'Not quite'}</strong><small>${learning.isCorrect ? 'Well done — keep it going.' : `The correct answer is ${question.keyAnswer}.`}</small></div></div><div class="explanation"><strong>Explanation</strong><p>${escapeHtml(question.justification)}</p></div><button class="primary" data-action="learning-next">Next question <span>→</span></button></section>`
     : ''
-  return `<section class="learning-panel"><div class="learning-stats"><div><span>Progress</span><strong>${currentNumber} / ${totalQuestions}</strong></div><div class="stat-correct"><span>Correct</span><strong>${learning.correctCount}</strong></div><div class="stat-incorrect"><span>Incorrect</span><strong>${learning.incorrectCount}</strong></div></div><div class="question-meta"><span>Domain ${question.domainaIndex}</span><span>${escapeHtml(question.domain)}</span></div><h2 class="question-text">${escapeHtml(question.question)}</h2><div class="choices">${choiceMarkup}</div>${feedback}</section>`
+  return `<section class="learning-panel"><div class="learning-stats"><div><span>Progress</span><strong>${currentNumber} / ${totalQuestions}</strong></div><div class="stat-correct"><span>Correct</span><strong>${learning.correctCount}</strong></div><div class="stat-incorrect"><span>Incorrect</span><strong>${learning.incorrectCount}</strong></div></div><div class="question-meta"><span>Domain ${question.domainIndex}</span><span>${escapeHtml(question.domain)}</span></div><h2 class="question-text">${escapeHtml(question.question)}</h2><div class="choices">${choiceMarkup}</div>${feedback}</section>`
 }
 
 function formatTime(milliseconds) {
@@ -619,13 +687,14 @@ async function loadQuestionFile(file) {
     const questions = parseQuestionBank(JSON.parse(await file.text()))
     if (!questions.length) throw new Error('No valid questions found in the selected file.')
     state.questions = questions
-    state.selectedDomains = [...DOMAIN_IDS]
+    state.selectedDomains = [...new Set(questions.map((question) => question.domainIndex))].sort()
+    state.domainWeights = normalizeDomainWeights(state.domainWeights, questions)
     state.exam = null
     state.learning = null
     state.error = null
     state.storageWarning = null
     state.tab = 'mock'
-    saveState({ questionBank: true })
+    saveState({ questionBank: true, domainWeights: true })
   } catch (error) {
     console.error('Question file import failed:', error)
     state.error = `Could not load ${file.name}: ${error.message || 'Unknown error.'}`
@@ -642,6 +711,13 @@ function handleChange(event) {
   }
   if (target.dataset.setting === 'question-count') state.questionCount = Math.max(1, Number(target.value) || 1)
   if (target.dataset.setting === 'duration') state.durationMinutes = Math.max(1, Number(target.value) || 1)
+  if (target.dataset.setting === 'domain-weight') {
+    const domain = target.dataset.domain
+    const value = Math.max(0, Math.min(100, Number(target.value) || 0))
+    state.domainWeights = { ...state.domainWeights, [domain]: value }
+    if (validDomainWeights(state.domainWeights)) saveState({ domainWeights: true })
+    render()
+  }
   if (target.dataset.setting === 'domain') {
     const domain = target.value
     if (target.checked) state.selectedDomains = [...new Set([...state.selectedDomains, domain])].sort()
@@ -673,6 +749,10 @@ function handleClick(event) {
     writeStorage(STORAGE_KEYS.fontScale, state.fontScale)
     applyFontScale()
     renderHeader()
+  } else if (action === 'restore-domain-weights') {
+    state.domainWeights = normalizeDomainWeights(DEFAULT_DOMAIN_WEIGHTS, state.questions)
+    saveState({ domainWeights: true })
+    render()
   } else if (action === 'reset') {
     if (!window.confirm('Reset the application? This will remove the question bank, saved progress, and display settings from this browser.')) return
     try {
@@ -686,6 +766,7 @@ function handleClick(event) {
     state.storageWarning = null
     state.questions = []
     state.selectedDomains = [...DOMAIN_IDS]
+    state.domainWeights = { ...DEFAULT_DOMAIN_WEIGHTS }
     state.questionCount = 150
     state.durationMinutes = 240
     state.exam = null
@@ -756,9 +837,14 @@ function handleClick(event) {
     nextLearningQuestion()
     saveState()
     render()
-  } else if (action === 'new-learning') {
+  } else if (action === 'new-learning' || action === 'end-learning') {
+    if (action === 'end-learning' && !window.confirm('End this learning session and clear its progress?')) return
     state.learning = null
-    saveState()
+    try {
+      localStorage.removeItem(STORAGE_KEYS.learning)
+    } catch {
+      // Learning state is still cleared from memory.
+    }
     render()
   }
 }

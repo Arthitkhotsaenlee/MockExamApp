@@ -21,7 +21,7 @@ REQUIRED_FIELDS = (
     "key answer",
     "justification",
     "domain",
-    "domaina_index",
+    "domain_index",
 )
 SOURCE_REQUIRED_FIELDS = REQUIRED_FIELDS[:-1]
 JSON_BLOCK_RE = re.compile(r"```json\s*(.*?)```", re.IGNORECASE | re.DOTALL)
@@ -58,7 +58,7 @@ def validate_question(value: Any, source: Path, block_number: int, row_number: i
         raise ValueError(f"{location}: invalid key answer {value['key answer']!r}")
 
     question = {field: value[field].strip() for field in SOURCE_REQUIRED_FIELDS}
-    question["domaina_index"] = domain_index(question["domain"], location)
+    question["domain_index"] = domain_index(question["domain"], location)
     return question
 
 

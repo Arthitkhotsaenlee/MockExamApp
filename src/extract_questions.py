@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract CISA OCR question records into a validated CSV file.
+"""Extract mock-exam OCR question records into a validated CSV file.
 
 Usage:
     python src/extract_questions.py
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator
 
-CSV_FIELDS = ["question", "A", "B", "C", "D", "key answer", "justification", "domain", "domaina_index"]
+CSV_FIELDS = ["question", "A", "B", "C", "D", "key answer", "justification", "domain", "domain_index"]
 DOMAIN_TITLES = {
     "1": "Domain 1—Information System Auditing Process",
     "2": "Domain 2—Governance and Management of IT",
@@ -173,7 +173,7 @@ def parse_candidate(source: Path, text: str, start: re.Match[str], end: int) -> 
     domain_info = domain_at(text, start.start())
     if not question or not all(options.values()) or not justification or domain_info is None:
         return None
-    domain, domaina_index = domain_info
+    domain, domain_index = domain_info
 
     row = {
         "question": question,
@@ -184,7 +184,7 @@ def parse_candidate(source: Path, text: str, start: re.Match[str], end: int) -> 
         "key answer": answer_match.group(1).upper(),
         "justification": justification,
         "domain": domain,
-        "domaina_index": domaina_index,
+        "domain_index": domain_index,
     }
     return ExtractedRecord(source=source, question_number=start.group(1), row=row)
 
@@ -226,8 +226,8 @@ def validate_records(records: Iterable[ExtractedRecord]) -> list[str]:
             diagnostics.append(f"{record.source} question {record.question_number}: invalid answer key")
         if row["domain"] not in DOMAIN_TITLES.values():
             diagnostics.append(f"{record.source} question {record.question_number}: invalid domain")
-        if row.get("domaina_index") not in DOMAIN_TITLES:
-            diagnostics.append(f"{record.source} question {record.question_number}: invalid domaina_index")
+        if row.get("domain_index") not in DOMAIN_TITLES:
+            diagnostics.append(f"{record.source} question {record.question_number}: invalid domain_index")
         previous = seen.get(record.identity)
         if previous:
             diagnostics.append(
@@ -243,7 +243,7 @@ def duplicate_keys(record: ExtractedRecord) -> tuple[tuple[str, ...], tuple[str,
     """Return stable source/number and normalized-content keys for a record."""
     source = os.path.normcase(os.path.abspath(record.source))
     return (
-        ("source-question", source, record.row.get("domaina_index", ""), record.question_number),
+        ("source-question", source, record.row.get("domain_index", ""), record.question_number),
         ("content", record.identity),
     )
 
@@ -253,7 +253,7 @@ def validate_duplicate_consistency(records: Iterable[ExtractedRecord]) -> list[s
     diagnostics: list[str] = []
     seen: dict[tuple[str, ...], tuple[int, ExtractedRecord]] = {}
     reported_pairs: set[tuple[int, int]] = set()
-    consistency_fields = ("key answer", "domaina_index")
+    consistency_fields = ("key answer", "domain_index")
 
     for index, record in enumerate(records):
         for key in duplicate_keys(record):
@@ -342,7 +342,7 @@ def write_csv_atomic(path: Path, records: Iterable[ExtractedRecord]) -> None:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Extract CISA OCR questions into a validated CSV file.")
+    parser = argparse.ArgumentParser(description="Extract questions into a validated CSV file.")
     parser.add_argument("--input-dir", type=Path, default=Path("raw_data"))
     parser.add_argument("--output", type=Path, default=Path("question.csv"))
     parser.add_argument("--chunk-size", type=int, default=64 * 1024)

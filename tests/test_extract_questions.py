@@ -68,7 +68,7 @@ class ExtractionTests(unittest.TestCase):
         self.assertEqual("Second option.", records[0].row["B"])
         self.assertEqual("B", records[0].row["key answer"])
         self.assertEqual("Domain 1—Information System Auditing Process", records[0].row["domain"])
-        self.assertEqual("1", records[0].row["domaina_index"])
+        self.assertEqual("1", records[0].row["domain_index"])
         self.assertNotIn("©ISACA", records[0].row["justification"])
         self.assertNotIn("DOMAIN 1", records[0].row["justification"])
         self.assertTrue(records[0].row["justification"].startswith("A. First rationale."))
@@ -107,7 +107,7 @@ class ExtractionTests(unittest.TestCase):
 
         self.assertEqual([], diagnostics)
         self.assertEqual(CSV_FIELDS, reader.fieldnames)
-        self.assertEqual("1", rows[0]["domaina_index"])
+        self.assertEqual("1", rows[0]["domain_index"])
         self.assertEqual(2, len(rows))
 
     def test_deduplicate_prefers_clean_ocr_copy(self):

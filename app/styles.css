@@ -112,6 +112,26 @@ h2 { margin-bottom: 5px; color: var(--navy); font-size: 18px; letter-spacing: -.
 .domain-stat strong, .domain-stat small { display: block; }
 .domain-stat strong { overflow: hidden; color: #414a5c; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .domain-stat small { margin-top: 4px; color: #969dae; font-size: 10px; }
+.weight-editor { margin-top: 20px; padding: 24px; }
+.weight-editor .section-title { align-items: flex-start; }
+.secondary.compact { min-height: 34px; padding: 0 12px; white-space: nowrap; }
+.weight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.weight-row { min-width: 0; padding: 12px; display: grid; grid-template-columns: 31px minmax(0, 1fr) auto; align-items: center; gap: 11px; background: #fafbfe; border: 1px solid #edf0f5; border-radius: 11px; }
+.weight-row.unavailable { opacity: .55; }
+.weight-domain { min-width: 0; }
+.weight-domain strong, .weight-domain small { display: block; }
+.weight-domain strong { overflow: hidden; color: #414a5c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.weight-domain small { margin-top: 3px; color: #969dae; font-size: 10px; }
+.weight-input { width: 78px; display: flex; align-items: center; overflow: hidden; background: white; border: 1px solid #dfe3eb; border-radius: 9px; }
+.weight-input:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(91,86,226,.12); }
+.weight-input input { width: 54px; min-height: 36px; padding: 0 6px 0 10px; color: #3d4658; background: transparent; border: 0; outline: 0; font-weight: 750; text-align: right; }
+.weight-input span { color: #939bad; font-size: 11px; }
+.weight-total { margin-top: 14px; padding: 11px 13px; display: flex; align-items: center; gap: 9px; border-radius: 10px; }
+.weight-total span, .weight-total small { font-size: 11px; }
+.weight-total strong { font-size: 14px; }
+.weight-total small { margin-left: auto; }
+.weight-total.valid { color: #087a52; background: var(--green-soft); }
+.weight-total.invalid { color: #9b263a; background: var(--red-soft); }
 
 .alert { position: relative; margin-bottom: 18px; padding: 13px 45px 13px 16px; display: grid; gap: 3px; color: #9b263a; background: var(--red-soft); border: 1px solid #ffd3da; border-radius: 11px; font-size: 12px; }
 .alert strong { font-size: 12px; }
@@ -122,6 +142,8 @@ h2 { margin-bottom: 5px; color: var(--navy); font-size: 18px; letter-spacing: -.
 .timer small, .timer strong { display: block; }
 .timer small { color: #8992a4; font-size: 9px; font-weight: 750; letter-spacing: .8px; text-transform: uppercase; }
 .timer strong { margin-top: 2px; font-size: 19px; font-variant-numeric: tabular-nums; }
+.learning-heading-actions { display: flex; align-items: center; gap: 10px; }
+.primary:disabled { opacity: .48; box-shadow: none; transform: none; }
 .setup-card { min-width: 0; padding: 30px; }
 .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 25px 0; }
 .controls label { color: #4b5568; font-size: 12px; font-weight: 700; }
@@ -281,9 +303,11 @@ h2 { margin-bottom: 5px; color: var(--navy); font-size: 18px; letter-spacing: -.
   main { padding: 25px 14px 92px; }
   .page-heading { align-items: flex-start; }
   .timer { min-width: 110px; }
-  .upload-card, .quick-start, .setup-card, .domain-overview, .question-panel, .learning-panel { padding: 20px; }
-  .controls, .domain-options { grid-template-columns: 1fr; }
-  .setup-footer, .exam-actions { align-items: stretch; flex-direction: column; }
+  .upload-card, .quick-start, .setup-card, .domain-overview, .weight-editor, .question-panel, .learning-panel { padding: 20px; }
+  .controls, .domain-options, .weight-grid { grid-template-columns: 1fr; }
+  .weight-editor .section-title, .setup-footer, .exam-actions { align-items: stretch; flex-direction: column; }
+  .learning-heading-actions { align-items: stretch; flex-direction: column; }
+  .learning-heading-actions .secondary { width: 100%; }
   .setup-footer .primary, .exam-actions > div, .exam-actions > div button { width: 100%; }
   .navigator { grid-template-columns: repeat(7, 1fr); }
   .learning-stats { margin: -20px -20px 23px; padding: 15px 20px; justify-content: space-between; gap: 12px; }

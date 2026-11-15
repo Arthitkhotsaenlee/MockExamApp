@@ -16,7 +16,7 @@ def question(answer: str = "B", domain_index: str = "99") -> dict[str, str]:
         "key answer": answer,
         "justification": "B is correct.",
         "domain": "Information Security Governance",
-        "domaina_index": domain_index,
+        "domain_index": domain_index,
     }
 
 
@@ -31,7 +31,7 @@ class CombineJsonQuestionsTests(unittest.TestCase):
             rows = extract_questions(path)
 
         self.assertEqual(1, len(rows))
-        self.assertEqual("1", rows[0]["domaina_index"])
+        self.assertEqual("1", rows[0]["domain_index"])
 
     def test_deduplicate_keeps_first_conflicting_answer(self):
         first = question(answer="A")

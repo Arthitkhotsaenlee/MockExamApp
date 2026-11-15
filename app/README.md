@@ -45,45 +45,49 @@ The JSON root must be an array. Every question requires the following string fie
     "key answer": "A",
     "justification": "A: Explanation\nB: Explanation\nC: Explanation\nD: Explanation",
     "domain": "Domain title",
-    "domaina_index": "1"
+    "domain_index": "1"
   }
 ]
 ```
 
-`key answer` must be `A`, `B`, `C`, or `D`. `domaina_index` must be a string from `1` through `5`.
+`key answer` must be `A`, `B`, `C`, or `D`. `domain_index` must be a string from `1` through `5`.
 
 ## Features
 
 - Local JSON upload and row validation
 - Stable question IDs and duplicate removal
 - Domain counts and selection, with all domains selected by default
+- Dashboard controls for customizable domain weights that must total 100%, dynamically limited to domains present in the imported data
 - Configurable mock-exam size and duration
 - Weighted, randomized question selection
 - Answer choices retained in A–D order in mock-exam and learning modes
-- Persistent timer with automatic submission
+- In-session timer with automatic submission
 - Question navigation, answered indicators, and flags
 - Score summary with correct, incorrect, and unanswered counts
 - Post-exam review with each question, selected answer, correct answer, and explanation
 - Randomized no-repeat learning sessions
 - Per-question learning timer showing elapsed time in minutes and seconds
 - Immediate answer feedback and explanations
-- Browser persistence across refreshes
+- End-session control that clears current learning progress
+- Question-bank, domain-weight, and display-setting persistence across refreshes
+- Exam and learning progress reset on refresh
 - Confirmed application reset
 - Responsive desktop, tablet, and mobile interface
 - Persistent top-bar controls for increasing or decreasing application text size
 
 ## Browser storage
 
-This version uses these local-storage keys:
+This version persists these local-storage keys:
 
 - `mock-exam-app-question-bank-v1`
-- `mock-exam-app-active-exam-v1`
-- `mock-exam-app-learning-v1`
 - `mock-exam-app-font-scale-v1`
+- `mock-exam-app-domain-weights-v1`
 
-Use **Reset app** to remove the question bank and saved progress and restore the default text size.
+Exam and learning progress remain in memory only. Refreshing the page clears both sessions and returns each mode to its setup screen while retaining the question bank, valid domain weights, and text size. Obsolete saved-progress keys are removed during startup.
 
-The question bank is stored in a compact internal format to reduce browser quota usage. If persistent storage is unavailable or full, the application continues in the current tab and displays a warning that data may not survive a refresh. When quota recovery is needed, only storage keys from older versions of this application are removed automatically.
+Use **Reset app** to remove the question bank and settings and restore the default domain weights and text size. **End session** in Learning mode clears only the current learning session.
+
+The question bank is stored in a compact internal format to reduce browser quota usage. If persistent storage is unavailable or full, the application continues in the current tab and displays a warning that the question bank and settings may not survive a refresh. When quota recovery is needed, only storage keys from older versions of this application are removed automatically.
 
 ## Share or deploy
 

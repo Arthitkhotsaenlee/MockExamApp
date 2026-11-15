@@ -52,7 +52,7 @@ The CSV and JSON records use these fields:
 | `key answer` | Correct choice: `A`, `B`, `C`, or `D` |
 | `justification` | Explanation, with choice explanations separated by newlines |
 | `domain` | Domain title |
-| `domaina_index` | Domain number stored as a string from `1` through `5` |
+| `domain_index` | Domain number stored as a string from `1` through `5` |
 
 Example JSON:
 
@@ -67,7 +67,7 @@ Example JSON:
     "key answer": "A",
     "justification": "A: Explanation\nB: Explanation\nC: Explanation\nD: Explanation",
     "domain": "Domain title",
-    "domaina_index": "1"
+    "domain_index": "1"
   }
 ]
 ```
