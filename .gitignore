@@ -4,3 +4,4 @@ __pycache__
 dist
 mode_modules
 .vscode
+src
